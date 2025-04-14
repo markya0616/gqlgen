@@ -443,18 +443,26 @@ func (b *Binder) TypeReference(schemaType *ast.Type, bindTarget types.Type) (ret
 			if err != nil {
 				return nil, err
 			}
+		} else if hasMethod(t, "MarshalGQLContext") && hasMethod(t, "UnmarshalGQLContext") {
+			if bindTarget != nil {
+				ref.GO = bindTarget
+			} else {
+				ref.GO = t
+			}
+			ref.IsContext = true
+			ref.IsMarshaler = true
+		} else if hasMethod(t, "MarshalGQL") && hasMethod(t, "UnmarshalGQL") {
+			if bindTarget != nil {
+				ref.GO = bindTarget
+			} else {
+				ref.GO = t
+			}
+			ref.IsMarshaler = true
 		} else if fun, isFunc := obj.(*types.Func); isFunc {
 			ref.GO = code.Unalias(t.(*types.Signature).Params().At(0).Type())
 			ref.IsContext = code.Unalias(t.(*types.Signature).Results().At(0).Type()).String() == "github.com/99designs/gqlgen/graphql.ContextMarshaler"
 			ref.Marshaler = fun
 			ref.Unmarshaler = types.NewFunc(0, fun.Pkg(), "Unmarshal"+typeName, nil)
-		} else if hasMethod(t, "MarshalGQLContext") && hasMethod(t, "UnmarshalGQLContext") {
-			ref.GO = t
-			ref.IsContext = true
-			ref.IsMarshaler = true
-		} else if hasMethod(t, "MarshalGQL") && hasMethod(t, "UnmarshalGQL") {
-			ref.GO = t
-			ref.IsMarshaler = true
 		} else if underlying := basicUnderlying(t); def.IsLeafType() && underlying != nil && underlying.Kind() == types.String {
 			// TODO delete before v1. Backwards compatibility case for named types wrapping strings (see #595)
 
@@ -475,7 +483,7 @@ func (b *Binder) TypeReference(schemaType *ast.Type, bindTarget types.Type) (ret
 		ref.Target = ref.GO
 		ref.GO = b.CopyModifiersFromAst(schemaType, ref.GO)
 
-		if bindTarget != nil {
+		if bindTarget != nil && ref.GO != bindTarget {
 			if err = code.CompatibleTypes(ref.GO, bindTarget); err != nil {
 				continue
 			}
