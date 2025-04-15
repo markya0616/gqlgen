@@ -40,6 +40,7 @@ type Config struct {
 type ResolverRoot interface {
 	MyMutation() MyMutationResolver
 	MyQuery() MyQueryResolver
+	TodoInput() TodoInputResolver
 }
 
 type DirectiveRoot struct {
@@ -74,6 +75,10 @@ type MyQueryResolver interface {
 	Todo(ctx context.Context, id int) (*Todo, error)
 	LastTodo(ctx context.Context) (*Todo, error)
 	Todos(ctx context.Context) ([]*Todo, error)
+}
+
+type TodoInputResolver interface {
+	Number(ctx context.Context, obj *TodoInput, data int) error
 }
 
 type executableSchema struct {
@@ -3088,7 +3093,7 @@ func (ec *executionContext) unmarshalInputTodoInput(ctx context.Context, obj any
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"text", "done"}
+	fieldsInOrder := [...]string{"text", "done", "number"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -3109,6 +3114,15 @@ func (ec *executionContext) unmarshalInputTodoInput(ctx context.Context, obj any
 				return it, err
 			}
 			it.Done = data
+		case "number":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("number"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			if err = ec.resolvers.TodoInput().Number(ctx, &it, data); err != nil {
+				return it, err
+			}
 		}
 	}
 
@@ -3692,6 +3706,21 @@ func (ec *executionContext) unmarshalNID2int(ctx context.Context, v any) (int, e
 
 func (ec *executionContext) marshalNID2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
 	res := graphql.MarshalIntID(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
+	res, err := graphql.UnmarshalInt(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
+	res := graphql.MarshalInt(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
