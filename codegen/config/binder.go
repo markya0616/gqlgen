@@ -484,13 +484,9 @@ func (b *Binder) TypeReference(schemaType *ast.Type, bindTarget types.Type) (ret
 			if hasMethod(bindTarget, "MarshalGQLContext") && hasMethod(bindTarget, "UnmarshalGQLContext") {
 				ref.IsContext = true
 				ref.IsMarshaler = true
-				ref.Marshaler = nil
-				ref.Unmarshaler = nil
 			} else if hasMethod(bindTarget, "MarshalGQL") && hasMethod(bindTarget, "UnmarshalGQL") {
 				ref.IsContext = false
 				ref.IsMarshaler = true
-				ref.Marshaler = nil
-				ref.Unmarshaler = nil
 			} else if err = code.CompatibleTypes(ref.GO, bindTarget); err != nil {
 				continue
 			}
